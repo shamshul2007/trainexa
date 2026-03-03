@@ -23,11 +23,31 @@ class _AccountPageState extends State<AccountPage> {
   void initState() {
     super.initState();
     _loadProfile();
+    
+    // Listen to auth state changes and reload profile
+    _authManager.authStateChanges().listen((user) {
+      if (mounted) {
+        if (user != null) {
+          _loadProfile();
+        } else {
+          setState(() {
+            _profile = null;
+            _isLoading = false;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _loadProfile() async {
+    if (!mounted) return;
+    
+    setState(() => _isLoading = true);
+    
     try {
       final user = _authManager.getCurrentUser();
+      debugPrint('Loading profile for user: ${user?.uid}');
+      
       if (user != null) {
         final profile = await _storage.loadUserProfile(user.uid);
         if (mounted) {
@@ -38,7 +58,10 @@ class _AccountPageState extends State<AccountPage> {
         }
       } else {
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() {
+            _profile = null;
+            _isLoading = false;
+          });
         }
       }
     } catch (e) {
@@ -86,6 +109,36 @@ class _AccountPageState extends State<AccountPage> {
 
     final user = _authManager.getCurrentUser();
 
+    // If not authenticated, show message
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Account')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.account_circle_outlined, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 16),
+              Text(
+                'Not signed in',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please sign in to view your account',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => context.go(Routes.login),
+                child: const Text('Sign In'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Account'),
@@ -123,27 +176,15 @@ class _AccountPageState extends State<AccountPage> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.person_outline),
-            title: const Text('Profile'),
+            title: const Text('Edit Profile & Goals'),
+            subtitle: _profile != null ? Text('${_profile!.experienceLevel} • ${_profile!.primaryGoal}') : null,
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Profile editing coming soon')),
-              );
+            onTap: () async {
+              await context.push('/edit-profile');
+              // Reload profile after editing
+              _loadProfile();
             },
           ),
-          if (_profile != null) ...[
-            ListTile(
-              leading: const Icon(Icons.fitness_center),
-              title: const Text('Fitness Info'),
-              subtitle: Text('${_profile!.experienceLevel} • ${_profile!.primaryGoal}'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Edit fitness info coming soon')),
-                );
-              },
-            ),
-          ],
           ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Settings & Preferences'),

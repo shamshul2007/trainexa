@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trainexa/models/user_profile.dart';
 import 'package:trainexa/models/workout_plan.dart';
 import 'package:trainexa/models/workout_session.dart';
+import 'package:trainexa/models/chat_message.dart';
 import 'package:trainexa/supabase/supabase_config.dart';
 
 /// Supabase storage service for user data
@@ -207,6 +208,47 @@ class StorageService {
     } catch (e) {
       debugPrint('Failed to get setting $key: $e');
       return null;
+    }
+  }
+
+  /// Load chat messages for a user
+  Future<List<ChatMessage>> loadChatMessages(String userId) async {
+    try {
+      final results = await SupabaseService.select(
+        'chat_messages',
+        filters: {'user_id': userId},
+        orderBy: 'created_at',
+        ascending: true,
+      );
+      return results.map((e) => ChatMessage.fromJson(e)).toList();
+    } catch (e) {
+      debugPrint('Failed to load chat messages: $e');
+      return [];
+    }
+  }
+
+  /// Save a new chat message
+  Future<void> saveChatMessage(ChatMessage message) async {
+    try {
+      final data = message.toJson();
+      data.remove('id'); // Let Supabase auto-generate UUID
+      await SupabaseService.insert('chat_messages', data);
+    } catch (e) {
+      debugPrint('Failed to save chat message: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete all chat messages for a user
+  Future<void> clearChatHistory(String userId) async {
+    try {
+      await SupabaseService.delete(
+        'chat_messages',
+        filters: {'user_id': userId},
+      );
+    } catch (e) {
+      debugPrint('Failed to clear chat history: $e');
+      rethrow;
     }
   }
 }

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:trainexa/auth/supabase_auth_manager.dart';
 import 'package:trainexa/models/user_profile.dart';
 import 'package:trainexa/services/storage_service.dart';
+import 'package:trainexa/services/plan_service.dart';
+import 'package:trainexa/services/ai_service.dart';
 import 'package:trainexa/routes.dart';
 
 class SignupPage extends StatefulWidget {
@@ -68,10 +70,31 @@ class _SignupPageState extends State<SignupPage> {
             // Save profile to Supabase
             await _storage.saveUserProfile(profile);
             
+            // Generate workout plan
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Generating your personalized workout plan...'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            
+            final planService = PlanService(AIService());
+            final plan = await planService.generatePlan(profile);
+            await _storage.saveWorkoutPlan(plan);
+            
             // Clear onboarding data
             await _storage.clearOnboardingData();
           } catch (e) {
-            debugPrint('Failed to save user profile: $e');
+            debugPrint('Failed to save user profile or generate plan: $e');
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Profile saved, but plan generation failed: ${e.toString()}'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
           }
         }
         

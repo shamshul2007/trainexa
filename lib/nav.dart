@@ -16,6 +16,7 @@ import 'package:trainexa/pages/settings/storage_page.dart';
 import 'package:trainexa/pages/settings/about_page.dart';
 import 'package:trainexa/pages/settings/terms_page.dart';
 import 'package:trainexa/pages/settings/privacy_page.dart';
+import 'package:trainexa/pages/settings/edit_profile_page.dart';
 import 'package:trainexa/routes.dart';
 
 /// GoRouter configuration for app navigation
@@ -99,6 +100,11 @@ class AppRouter {
         path: '/settings/privacy',
         name: 'privacy',
         pageBuilder: (context, state) => const MaterialPage(child: PrivacyPage()),
+      ),
+      GoRoute(
+        path: '/edit-profile',
+        name: 'edit-profile',
+        pageBuilder: (context, state) => const MaterialPage(child: EditProfilePage()),
       ),
     ],
   );

@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:trainexa/models/user_profile.dart';
-import 'package:trainexa/services/storage_service.dart';
-import 'package:trainexa/services/plan_service.dart';
-import 'package:trainexa/services/ai_service.dart';
 import 'package:trainexa/pages/onboarding/state.dart';
-import 'package:trainexa/auth/supabase_auth_manager.dart';
 
 class WelcomeScreen extends StatelessWidget {
   final VoidCallback onNext;
@@ -67,9 +61,27 @@ class ProfileBasicsScreen extends StatefulWidget {
 }
 
 class _ProfileBasicsScreenState extends State<ProfileBasicsScreen> {
+  final _nameController = TextEditingController();
+  final _ageController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
   String? _sex;
 
-  bool get _canContinue => _sex != null;
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _ageController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  bool get _canContinue => 
+    _nameController.text.trim().isNotEmpty &&
+    _ageController.text.trim().isNotEmpty &&
+    _heightController.text.trim().isNotEmpty &&
+    _weightController.text.trim().isNotEmpty &&
+    _sex != null;
 
   @override
   Widget build(BuildContext context) {
@@ -78,41 +90,95 @@ class _ProfileBasicsScreenState extends State<ProfileBasicsScreen> {
       child: Column(
         children: [
           const SizedBox(height: 40),
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              color: Colors.pink.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.people, size: 70, color: Colors.pink.shade400),
-          ),
-          const SizedBox(height: 40),
           Text(
-            'How do you identify?',
+            'Tell us about yourself',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          _buildOptionButton(context, 'Male', _sex == 'male', () => setState(() => _sex = 'male')),
-          const SizedBox(height: 12),
-          _buildOptionButton(context, 'Female', _sex == 'female', () => setState(() => _sex = 'female')),
-          const SizedBox(height: 12),
-          _buildOptionButton(context, 'Non-binary', _sex == 'other', () => setState(() => _sex = 'other')),
-          const SizedBox(height: 12),
-          _buildOptionButton(context, 'Prefer not to disclose', _sex == 'prefer_not', () => setState(() => _sex = 'prefer_not')),
-          const Spacer(),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      hintText: 'Enter your name',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _ageController,
+                    decoration: const InputDecoration(
+                      labelText: 'Age',
+                      hintText: 'Enter your age',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _heightController,
+                          decoration: const InputDecoration(
+                            labelText: 'Height (cm)',
+                            hintText: '170',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _weightController,
+                          decoration: const InputDecoration(
+                            labelText: 'Weight (lbs)',
+                            hintText: '150',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'How do you identify?',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildOptionButton(context, 'Male', _sex == 'male', () => setState(() => _sex = 'male')),
+                  const SizedBox(height: 12),
+                  _buildOptionButton(context, 'Female', _sex == 'female', () => setState(() => _sex = 'female')),
+                  const SizedBox(height: 12),
+                  _buildOptionButton(context, 'Non-binary', _sex == 'other', () => setState(() => _sex = 'other')),
+                  const SizedBox(height: 12),
+                  _buildOptionButton(context, 'Prefer not to disclose', _sex == 'prefer_not', () => setState(() => _sex = 'prefer_not')),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 56,
             child: FilledButton(
               onPressed: _canContinue ? () {
                 OnboardingState.of(context).updateBasics(
-                  name: 'User',
-                  age: 25,
+                  name: _nameController.text.trim(),
+                  age: int.tryParse(_ageController.text.trim()) ?? 25,
                   sex: _sex!,
-                  weightLbs: 150,
-                  heightCm: 170,
+                  weightLbs: double.tryParse(_weightController.text.trim()) ?? 150,
+                  heightCm: double.tryParse(_heightController.text.trim()) ?? 170,
                 );
                 widget.onNext();
               } : null,
@@ -352,59 +418,10 @@ class ConfirmGenerateScreen extends StatefulWidget {
 
 class _ConfirmGenerateScreenState extends State<ConfirmGenerateScreen> {
   bool loading = false;
-  String status = 'Analyzing your profile...';
-  final storage = StorageService();
 
-  Future<void> _generate() async {
-    setState(() => loading = true);
-    try {
-      final authManager = SupabaseAuthManager();
-      final currentUser = authManager.getCurrentUser();
-      
-      debugPrint('Current user check: ${currentUser?.uid ?? "null"}');
-      
-      if (currentUser == null) {
-        throw Exception('Not authenticated. If you just signed up, please check your email to confirm your account, then sign in again.');
-      }
-
-      setState(() => status = 'Saving your profile...');
-      final data = OnboardingState.of(context);
-      final profile = UserProfile(
-        id: currentUser.uid,
-        name: data.name!,
-        age: data.age!,
-        sex: data.sex!,
-        weightLbs: data.weight!,
-        heightCm: data.height!,
-        experienceLevel: data.experience!,
-        primaryGoal: data.goal!,
-        equipmentAvailable: data.equipment ?? const [],
-        constraints: data.constraints ?? '',
-        createdAt: DateTime.now(),
-      );
-      await storage.saveUserProfile(profile);
-      
-      setState(() => status = 'Generating your personalized plan...');
-      final plan = await PlanService(AIService()).generatePlan(profile);
-      
-      setState(() => status = 'Saving plan...');
-      await storage.saveWorkoutPlan(plan);
-      
-      widget.onFinish();
-    } catch (e) {
-      debugPrint('Plan generation failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 8),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+  Future<void> _continue() async {
+    // Simply complete onboarding - signup will handle plan generation
+    widget.onFinish();
   }
 
   @override
@@ -436,29 +453,18 @@ class _ConfirmGenerateScreenState extends State<ConfirmGenerateScreen> {
             textAlign: TextAlign.center,
           ),
           const Spacer(),
-          if (loading) ...[
-            Text(
-              status,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const CircularProgressIndicator(),
-            const SizedBox(height: 40),
-          ] else ...[
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton(
-                onPressed: _generate,
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Generate My Plan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: loading ? null : _continue,
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              child: const Text('Continue to Sign Up', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
-            const SizedBox(height: 20),
-          ]
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
